@@ -167,15 +167,25 @@ static bool findFeasibleAlternativeTarget(const string& originalTarget, const St
         vector<PathCandidate> altFeasible = filterByBudget(altCandidates, profile.timeBudgetHours);
         if (altFeasible.empty()) continue;
 
+        // Pilih kandidat paling thorough (totalHours terbesar yang masih muat budget),
+        // bukan yang paling murah -- supaya waktu belajar tersisa dipakai maksimal.
+        size_t bestIdx = 0;
+        for (size_t i = 1; i < altFeasible.size(); i++) {
+            if (altFeasible[i].totalHours > altFeasible[bestIdx].totalHours) bestIdx = i;
+        }
         vector<ScoredCandidate> scored = calculateScoreForAll(altFeasible, profile.timeBudgetHours);
-        mergeSortCandidates(scored);
-        bestPerTarget.push_back(scored[0]);
+        bestPerTarget.push_back(scored[bestIdx]);
     }
 
     if (bestPerTarget.empty()) return false;
 
-    mergeSortCandidates(bestPerTarget);
-    bestAlternative = bestPerTarget[0];
+    size_t bestTargetIdx = 0;
+    for (size_t i = 1; i < bestPerTarget.size(); i++) {
+        if (bestPerTarget[i].candidate.totalHours > bestPerTarget[bestTargetIdx].candidate.totalHours) {
+            bestTargetIdx = i;
+        }
+    }
+    bestAlternative = bestPerTarget[bestTargetIdx];
     return true;
 }
 
@@ -224,6 +234,13 @@ void recommendLearningPathMenu(const StudentProfile& profile, const vector<Modul
             printFinalRecommendation(alternative);
         } else {
             cout << "Tidak ditemukan target alternatif yang feasible dalam budget." << endl;
+        }
+
+        double shortfall = minHours - profile.timeBudgetHours;
+        if (shortfall <= 5.0) {
+            cout << "\nCatatan: Anda hanya kurang " << shortfall << " jam dari target asli "
+                 << profile.targetModule << ". Pertimbangkan menambah waktu belajar sedikit "
+                 << "untuk langsung mencapai target awal." << endl;
         }
         return;
     }
