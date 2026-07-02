@@ -1,27 +1,39 @@
 #include "bfs_baseline.h"
 #include <queue>
 
-// Kompleksitas: O(V + E) — BFS/Kahn's-style: modul diproses level demi level saat
-// semua OR-group prasyaratnya terpenuhi (in-degree efektif 0), tiap modul & edge
-// dikunjungi maksimal satu kali.
+// Kompleksitas: O(V + E) — Kahn's algorithm asli memakai queue: modul dengan
+// in-degree efektif 0 (semua OR-group prasyaratnya terpenuhi) dimasukkan ke queue,
+// setiap modul di-pop & diproses tepat satu kali, lalu memicu pengecekan ulang
+// modul lain yang belum masuk queue. Total pekerjaan pengecekan "ready" terikat
+// oleh jumlah modul dan jumlah entry prasyarat (edge), bukan V^2 full-scan berulang.
 vector<string> findBaselinePath(const set<string>& requiredModules, const set<string>& mastered,
                                  const ModuleGraph& graph) {
     vector<string> path;
     set<string> fulfilled = mastered;
     set<string> remaining = requiredModules;
+    queue<string> ready;
 
-    // Kahn's-style: proses modul yang ready satu per satu, karena "ready" bisa
-    // berubah setelah modul lain diproses, ulangi scan requiredModules sampai
-    // tidak ada modul baru yang bisa diproses.
-    bool progress = true;
-    while (progress && !remaining.empty()) {
-        progress = false;
+    // Inisialisasi: modul yang sudah ready dari awal (in-degree efektif 0) masuk queue.
+    for (auto it = remaining.begin(); it != remaining.end(); ) {
+        if (isModuleReady(*it, fulfilled, graph)) {
+            ready.push(*it);
+            it = remaining.erase(it);
+        } else {
+            ++it;
+        }
+    }
+
+    while (!ready.empty()) {
+        string current = ready.front();
+        ready.pop();
+        path.push_back(current);
+        fulfilled.insert(current);
+
+        // Modul lain yang tadinya belum ready mungkin sekarang terpenuhi.
         for (auto it = remaining.begin(); it != remaining.end(); ) {
             if (isModuleReady(*it, fulfilled, graph)) {
-                path.push_back(*it);
-                fulfilled.insert(*it);
+                ready.push(*it);
                 it = remaining.erase(it);
-                progress = true;
             } else {
                 ++it;
             }
